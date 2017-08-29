@@ -1,0 +1,5 @@
+# build intermediates
+build/
+
+# built program
+*.tns
