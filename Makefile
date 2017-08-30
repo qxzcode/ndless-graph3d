@@ -6,6 +6,10 @@ GXX := nspire-g++
 LD  := nspire-ld
 GENZEHN := genzehn
 
+DEPFILE = $(@:.o=.d)
+DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPFILE).tmp
+FINISH_DEP = @mv -f $(DEPFILE).tmp $(DEPFILE) && touch $@
+
 GCCFLAGS  := -Wall -W -marm
 LDFLAGS   := 
 ZEHNFLAGS := --name "test" --compress
@@ -28,6 +32,8 @@ OBJDIRS := $(sort $(dir $(OBJS)))
 OBJDIRS := $(OBJDIRS:/=)  # remove trailing '/' from dirs
 OBJDIRS := $(strip $(OBJDIRS))
 
+DEPFILES := $(OBJS:.o=.d)
+
 EXE := test
 
 
@@ -48,17 +54,24 @@ rebuild: clean all
 # recipes to make the bin directories
 $(foreach dir,$(OBJDIRS),$(eval $(dir):;@echo Creating directory \'$(dir)\'...;mkdir -p $(dir)))
 
-.SECONDEXPANSION:  # to enable containing directory as a prerequisite
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.c   | $$(@D)
-	@echo "---- Compiling \033[0;36m$<\033[0m"
-	@$(GCC) $(GCCFLAGS) -c $< -o $@
+# empty recipes to silence errors about missing .d files
+$(foreach dep,$(DEPFILES),$(eval $(dep): ;))
+.PRECIOUS: $(DEPFILES)
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp | $$(@D)
+.SECONDEXPANSION:  # to enable the use of automatic vars in prerequisites
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c   $(BIN_DIR)/%.d | $$(@D)
 	@echo "---- Compiling \033[0;36m$<\033[0m"
-	@$(GXX) $(GCCFLAGS) -c $< -o $@
+	@$(GCC) $(GCCFLAGS) $(DEPFLAGS) -c $< -o $@
+	@$(FINISH_DEP)
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.S   | $$(@D)
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp $(BIN_DIR)/%.d | $$(@D)
+	@echo "---- Compiling \033[0;36m$<\033[0m"
+	@$(GXX) $(GCCFLAGS) $(DEPFLAGS) -c $< -o $@
+	@$(FINISH_DEP)
+
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.S   $(BIN_DIR)/%.d | $$(@D)
 	@echo "---- Assembling \033[0;36m$<\033[0m"
+	$(warning This Makefile has not been tested for *.S sources)
 	@$(AS) -c $< -o $@
 
 $(EXE).tns: $(OBJS)
@@ -69,3 +82,6 @@ $(EXE).tns: $(OBJS)
 	@make-prg $(EXE).zehn $@
 	@rm $(EXE).elf
 	@rm $(EXE).zehn
+
+
+include $(wildcard $(DEPFILES))
