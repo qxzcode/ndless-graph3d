@@ -1,73 +1,86 @@
-#include <os.h>
-#include <SDL/SDL_config.h>
+#include <string>
+
+//#include <os.h>
 #include <SDL/SDL.h>
-#include <SDL/SDL_gfxPrimitives.h>
+//#include <SDL/SDL_gfxPrimitives.h>
 
-
-struct point {
-	int x, y;
-};
-
-constexpr double P_SCALE = 200.0;
-
-struct Camera {
-	
-	point transform(double x, double y, double z) {
-		// view transform...
-		
-		return point{
-			static_cast<int>(P_SCALE*x/z),
-			static_cast<int>(P_SCALE*y/z)
-		};
-	}
-	
-};
+#include "grid.h"
+#include "3D.h"
 
 
 double func(double x, double y) {
-	double foo = x + y;
-	return 1 / (1 + foo*foo);
+	//return sin(x)*sin(y) / 8;
+	double foo = hypot(x, y);
+	return 0.6 / (1 + foo*foo);
 }
 
-constexpr int GRID_SIZE = 5;
-constexpr double SCALE = 4.0 / GRID_SIZE;
-
-struct Grid {
-	
-	double hmap[GRID_SIZE][GRID_SIZE];
-	
-	Grid() {
-		for (int x = 0; x < GRID_SIZE; x++) {
-			for (int y = 0; y < GRID_SIZE; y++) {
-				hmap[x][y] = func(x*SCALE, y*SCALE);
-			}
-		}
-	}
-	
-};
-
-
 int main() {
-	SDL_Surface *screen;
-	nSDL_Font *font;
+	// initialize SDL
 	SDL_Init(SDL_INIT_VIDEO);
-	screen = SDL_SetVideoMode(320, 240, has_colors ? 16 : 8, SDL_SWSURFACE);
-	font = nSDL_LoadFont(NSDL_FONT_TINYTYPE, 29, 43, 61);
+	SDL_Surface* screen = SDL_SetVideoMode(320, 240, has_colors ? 16 : 8, SDL_SWSURFACE);
+	nSDL_Font* font = nSDL_LoadFont(NSDL_FONT_TINYTYPE, 29, 43, 61);
 	
-	SDL_FillRect(screen, nullptr, SDL_MapRGB(screen->format, 128, 128, 128));
+	SDL_FillRect(screen, nullptr, SDL_MapRGB(screen->format, 0, 128, 0));
 	SDL_Flip(screen);
-	SDL_Delay(1000);
 	
-	Grid grid;
+	Grid grid(func);
 	Camera cam;
 	
-	SDL_FillRect(screen, nullptr, SDL_MapRGB(screen->format, 184, 200, 222));
-	filledTrigonRGBA(screen, 100,100, 50,130, 230,125, 0,0,255,255);
-	trigonRGBA      (screen, 100,100, 50,130, 230,125, 0,0,0,255);
-	nSDL_DrawString(screen, font, 30, 30, "Hello, world! \x1");
-	SDL_Flip(screen);
+	SDLKey curKey = SDLK_UNKNOWN;
+	Uint8 curKeySC = 0;
+	Uint32 lastFrame = SDL_GetTicks();
+	double time = 0.0;
+	bool running = true;
+	while (running) {
+		// compute delta time
+		Uint32 curFrame = SDL_GetTicks();
+		double dt = (curFrame-lastFrame)/1000.0;
+		time += dt;
+		lastFrame = curFrame;
+		
+		// handle input
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_KEYDOWN:
+				curKey = event.key.keysym.sym;
+				curKeySC = event.key.keysym.scancode;
+				if (curKeySC == 53) running = false;
+				break;
+			case SDL_KEYUP:
+				curKey = SDLK_UNKNOWN;
+				curKeySC = 0;
+				break;
+			}
+		}
+		
+		//cam.x = 0.35*cos(time) + 0.5;
+		//cam.y = 0.35*sin(time) + 0.5;
+		cam.yaw += dt*1.0;//sin(time*2.0)*0.6;
+		cam.pitch = 0.6;
+		cam.calcMatrix();
+		
+		// clear the screen
+		SDL_FillRect(screen, nullptr, SDL_MapRGB(screen->format, 184, 200, 222));
+		
+		// draw the geometry
+		grid.draw(screen, cam);
+		
+		// debug text
+		#define ts std::to_string
+		std::string str;
+		//str += ts(curKeySC)+"\n";
+		//str += ts(curKey)+" : "+SDL_GetKeyName(curKey)+"\n";
+		str += "xInner="+ts(cam.xInner)+"  aRev="+ts(cam.aRev)+"  bRev="+ts(cam.bRev)+"\n";
+		str += "FPS: "+ts(int(1/dt));
+		nSDL_DrawString(screen, font, 30, 30, str.c_str());
+		#undef ts
+		
+		// update the screen
+		SDL_Flip(screen);
+	}
 	
-	wait_key_pressed();
+	//wait_key_pressed();
 	
 	SDL_Quit();
 	return 0;
