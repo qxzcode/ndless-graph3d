@@ -50,7 +50,7 @@ private:
 	
 public:
 	double x = 0, y = 0, z = 2.5;
-	double pitch = 0, yaw = 0;
+	double pitch = M_PI/4, yaw = -M_PI/4;
 	
 	bool xInner, aRev, bRev;
 	

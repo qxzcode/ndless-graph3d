@@ -6,10 +6,12 @@
 
 #include "grid.h"
 #include "3D.h"
+#include "input.h"
 
 
 double func(double x, double y) {
-	//return sin(x)*sin(y) / 8;
+	//return 1/x + 1/y;
+	return sin(x)*sin(y) / 4;
 	double foo = hypot(x, y);
 	return 0.6 / (1 + foo*foo);
 }
@@ -26,8 +28,6 @@ int main() {
 	Grid grid(func);
 	Camera cam;
 	
-	SDLKey curKey = SDLK_UNKNOWN;
-	Uint8 curKeySC = 0;
 	Uint32 lastFrame = SDL_GetTicks();
 	double time = 0.0;
 	bool running = true;
@@ -39,25 +39,19 @@ int main() {
 		lastFrame = curFrame;
 		
 		// handle input
-		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_KEYDOWN:
-				curKey = event.key.keysym.sym;
-				curKeySC = event.key.keysym.scancode;
-				if (curKeySC == 53) running = false;
-				break;
-			case SDL_KEYUP:
-				curKey = SDLK_UNKNOWN;
-				curKeySC = 0;
-				break;
-			}
+		if (input::exit()) {
+			running = false;
+			break;
 		}
 		
-		//cam.x = 0.35*cos(time) + 0.5;
-		//cam.y = 0.35*sin(time) + 0.5;
-		cam.yaw += dt*1.0;//sin(time*2.0)*0.6;
-		cam.pitch = 0.6;
+		constexpr double SPIN_RATE = 1.4;
+		double spin = SPIN_RATE*dt;
+		if (input::left())  cam.yaw -= spin;
+		if (input::right()) cam.yaw += spin;
+		if (input::up())   cam.pitch -= spin;
+		if (input::down())   cam.pitch += spin;
+		if (cam.pitch >  M_PI/2) cam.pitch =  M_PI/2;
+		if (cam.pitch < -M_PI/2) cam.pitch = -M_PI/2;
 		cam.calcMatrix();
 		
 		// clear the screen
@@ -69,9 +63,9 @@ int main() {
 		// debug text
 		#define ts std::to_string
 		std::string str;
-		//str += ts(curKeySC)+"\n";
-		//str += ts(curKey)+" : "+SDL_GetKeyName(curKey)+"\n";
-		str += "xInner="+ts(cam.xInner)+"  aRev="+ts(cam.aRev)+"  bRev="+ts(cam.bRev)+"\n";
+		str += ts(isKeyPressed(KEY_NSPIRE_LEFTUP))+ts(isKeyPressed(KEY_NSPIRE_UP))+ts(isKeyPressed(KEY_NSPIRE_UPRIGHT))+"\n";
+		str += ts(isKeyPressed(KEY_NSPIRE_LEFT))+ts(isKeyPressed(KEY_NSPIRE_CLICK))+ts(isKeyPressed(KEY_NSPIRE_RIGHT))+"\n";
+		str += ts(isKeyPressed(KEY_NSPIRE_DOWNLEFT))+ts(isKeyPressed(KEY_NSPIRE_DOWN))+ts(isKeyPressed(KEY_NSPIRE_RIGHTDOWN))+"\n";
 		str += "FPS: "+ts(int(1/dt));
 		nSDL_DrawString(screen, font, 30, 30, str.c_str());
 		#undef ts
